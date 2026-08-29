@@ -324,18 +324,6 @@ class CameraViewWidget(QWidget):
         for pt in poly:
             painter.drawEllipse(pt, 4, 4)
 
-        if poly.count() > 0:
-            top_pt = poly[0]
-            tag_rect = QRectF(top_pt.x() - 40, top_pt.y() - 26, 90, 20)
-            painter.setBrush(QBrush(QColor(24, 24, 27, 220)))
-            painter.setPen(QPen(QColor(16, 185, 129), 1))
-            painter.drawRoundedRect(tag_rect, 4, 4)
-
-            painter.setPen(QColor(16, 185, 129))
-            font = QFont(THEME["font_family"], 9, QFont.Weight.Bold)
-            painter.setFont(font)
-            painter.drawText(tag_rect, Qt.AlignmentFlag.AlignCenter, f"✓ {detection.engine}")
-
     def _draw_paused_overlay(self, painter: QPainter, rect: QRect):
         """Draw frosted dark tint and paused text when camera is paused."""
         painter.fillRect(rect, QColor(0, 0, 0, 120))
