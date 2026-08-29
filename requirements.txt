@@ -1,0 +1,25 @@
+# Computer Vision & QR Detection
+# - opencv-python: Provides webcam capture (DirectShow/MSMF), CLAHE contrast normalization, and image processing
+opencv-python>=4.8.0
+
+# - zxing-cpp: High-performance C++ port for real-time sub-millisecond barcode & QR code decoding
+zxing-cpp>=2.2.0
+
+# User Interface
+# - PyQt6: Desktop GUI framework providing the modern Windows 11 Fluent dark-mode UI, QPainter HUD, and threading
+PyQt6>=6.6.0
+
+# Numerical Processing
+# - numpy: Array manipulation for camera frame buffers, image transformations, and polygon bounding boxes
+numpy>=1.26.0
+
+# Standalone Windows Packaging
+# - pyinstaller: Bundles Python runtime, Qt DLLs, and application assets into a portable standalone .exe
+pyinstaller>=6.4.0
+
+# Testing & QR Synthesis
+# - qrcode[pil]: In-memory synthetic QR code generation for automated unit and integration testing
+qrcode[pil]>=7.4.2
+
+# - pillow: Image processing backend used by qrcode and icon generation routines
+pillow>=10.0.0
