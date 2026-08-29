@@ -243,12 +243,14 @@ class MainWindow(QMainWindow):
     def _init_camera(self):
         """Instantiate and launch camera capture thread."""
         if self.camera_thread is not None and self.camera_thread.isRunning():
+            logger.debug("CameraCaptureThread already running.")
             return
 
         curr_idx = self.cam_combo.currentData()
         if curr_idx is None:
             curr_idx = DEFAULT_CAMERA_INDEX
 
+        logger.info(f"Initializing CameraCaptureThread with camera index {curr_idx}...")
         self.camera_thread = CameraCaptureThread(camera_index=curr_idx, detector=self.detector)
         self.camera_thread.frame_ready.connect(self.camera_view.update_frame)
         self.camera_thread.qr_detected.connect(self._on_qr_code_detected)
@@ -257,11 +259,13 @@ class MainWindow(QMainWindow):
 
     def _on_activate_camera(self):
         """Handler when user clicks Activate Camera button."""
+        logger.info("User requested camera activation.")
         self.status_banner.show_info("Starting camera...", 2000)
         self._init_camera()
 
     def _on_retry_camera(self):
         """Handler when user clicks Retry Camera button."""
+        logger.info("User requested camera retry.")
         self.status_banner.show_info("Retrying camera...", 2000)
         if self.camera_thread:
             self.camera_thread.retry_camera()
@@ -270,6 +274,7 @@ class MainWindow(QMainWindow):
 
     def bring_to_foreground(self):
         """Bring application window to top if another instance is launched."""
+        logger.info("Bringing application window to foreground.")
         self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
         self.showNormal()
         self.raise_()
@@ -278,6 +283,7 @@ class MainWindow(QMainWindow):
 
     def _on_camera_changed(self, index: int):
         cam_id = self.cam_combo.currentData()
+        logger.info(f"User changed camera selection to index {cam_id}.")
         if cam_id is not None and self.camera_thread is not None and self.camera_thread.isRunning():
             self.camera_thread.set_camera_index(cam_id)
             self.status_banner.show_info(f"Switched to Camera {cam_id}", 3000)
@@ -285,7 +291,7 @@ class MainWindow(QMainWindow):
     def _on_qr_code_detected(self, detection: DetectionResult):
         """Called when a valid QR code is recognized by the detector."""
         raw_text = detection.text
-        logger.info(f"QR Code Recognized via {detection.engine}: {raw_text}")
+        logger.info(f"QR Code Recognized via [{detection.engine}] (length={len(raw_text)})")
 
         # Pause camera capture according to manual action workflow
         if self.camera_thread:
@@ -295,16 +301,20 @@ class MainWindow(QMainWindow):
         if is_wifi_qr(raw_text):
             creds = parse_wifi_qr(raw_text)
             if creds:
+                logger.info(f"Parsed WiFi credentials: SSID='{creds.ssid}', Auth='{creds.auth_type}', Hidden={creds.is_hidden}")
                 self.result_card.display_wifi_credentials(creds)
                 self.status_banner.show_success(f"WiFi QR code found: '{creds.ssid}'")
             else:
+                logger.warning("QR code matched WIFI prefix but could not be parsed as valid credentials.")
                 self.result_card.display_generic_payload(raw_text)
         else:
+            logger.info("Non-WiFi generic QR code payload received.")
             self.result_card.display_generic_payload(raw_text)
             self.status_banner.show_info("Scanned QR code content")
 
     def _on_resume_scanning_requested(self):
         """Resume active camera stream and scanning HUD."""
+        logger.info("User requested resumption of active scanning.")
         self.camera_view.set_paused(False)
         if self.camera_thread:
             self.camera_thread.resume_detection()
@@ -312,6 +322,7 @@ class MainWindow(QMainWindow):
 
     def _on_connect_wifi_requested(self, creds: WiFiCredentials):
         """Connect to WiFi using Windows Native WLAN in background worker."""
+        logger.info(f"User initiated WiFi connection for SSID='{creds.ssid}'.")
         self.result_card.set_connecting_state(True, "Connecting...")
         self.status_banner.show_info(f"Connecting to '{creds.ssid}'...")
 
@@ -321,6 +332,7 @@ class MainWindow(QMainWindow):
         self.connect_worker.start()
 
     def _on_wifi_connect_finished(self, result: ConnectionResult):
+        logger.info(f"WiFi connection worker finished: success={result.success}, msg='{result.message}'")
         self.result_card.set_connecting_state(False)
         if result.success:
             self.status_banner.show_success(result.message, 10000)
@@ -329,6 +341,7 @@ class MainWindow(QMainWindow):
             self.status_banner.show_error(result.message, 10000)
 
     def _on_status_message(self, message: str, msg_type: str):
+        logger.debug(f"Status banner message ({msg_type}): {message}")
         if msg_type == "success":
             self.status_banner.show_success(message)
         elif msg_type == "error":
@@ -337,13 +350,16 @@ class MainWindow(QMainWindow):
             self.status_banner.show_info(message)
 
     def _on_camera_error(self, err_msg: str):
+        logger.error(f"Camera error: {err_msg}")
         self.status_banner.show_error(err_msg, 0)
         self.camera_view.set_error(err_msg)
 
     def closeEvent(self, event):
         """Clean up background threads on exit."""
+        logger.info("MainWindow closeEvent received. Terminating workers...")
         if self.camera_thread and self.camera_thread.isRunning():
             self.camera_thread.stop()
         if self.connect_worker and self.connect_worker.isRunning():
             self.connect_worker.wait(1000)
+        logger.info("MainWindow closed.")
         event.accept()

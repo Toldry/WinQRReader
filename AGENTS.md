@@ -46,6 +46,7 @@ WinQRReader/
 │   └── screenshot.png        # Application UI screenshot
 ├── src/
 │   ├── config.py             # Global constants, paths, Fluent UI palette
+│   ├── logger.py             # Unified rotating file logger, exception hooks, Qt handler, & diagnostics
 │   ├── qr/
 │   │   ├── detector.py       # SuperReliableQRDetector (zxing-cpp + multi-stage optical enhancement)
 │   │   └── parser.py         # WiFi MeCard format parser & unescaper
@@ -64,6 +65,7 @@ WinQRReader/
 ├── tests/
 │   ├── test_camera_activation.py # Manual camera activation & session lifecycle tests
 │   ├── test_detector.py      # QR detection accuracy & synthetic noise tests
+│   ├── test_logger.py        # Logging setup, file creation, & exception hook tests
 │   ├── test_parser.py        # WiFi schema & escape character parsing tests
 │   ├── test_real_images.py   # Real-world webcam photo test suite
 │   └── test_wifi_profile.py  # WLAN XML validity & encryption schema tests

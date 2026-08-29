@@ -27,18 +27,32 @@ logger = logging.getLogger(__name__)
 def list_available_cameras(max_tested: int = 4) -> List[int]:
     """Discover available camera indices on the system."""
     available = []
+    logger.info(f"Scanning for available camera hardware (testing indices 0 to {max_tested - 1})...")
     for i in range(max_tested):
-        # Quick non-blocking test with DSHOW, then default
-        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-        if not cap.isOpened():
-            cap = cv2.VideoCapture(i)
+        try:
+            # Quick non-blocking test with DSHOW, then default
+            cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+            backend_used = "DSHOW"
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(i)
+                backend_used = "Default"
 
-        if cap.isOpened():
-            ret, _ = cap.read()
-            if ret:
-                available.append(i)
-            cap.release()
-    return available if available else [0]
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    logger.info(f"Camera index {i} detected and operational via {backend_used}.")
+                    available.append(i)
+                else:
+                    logger.debug(f"Camera index {i} opened with {backend_used} but failed test frame read.")
+                cap.release()
+            else:
+                logger.debug(f"Camera index {i} could not be opened.")
+        except Exception as e:
+            logger.warning(f"Error while probing camera index {i}: {e}")
+
+    result = available if available else [0]
+    logger.info(f"Camera discovery complete. Available indices: {result}")
+    return result
 
 
 class CameraDiscoveryWorker(QThread):
@@ -50,7 +64,9 @@ class CameraDiscoveryWorker(QThread):
         self.max_tested = max_tested
 
     def run(self):
+        logger.debug(f"CameraDiscoveryWorker thread {self.currentThreadId()} started.")
         cameras = list_available_cameras(self.max_tested)
+        logger.debug(f"CameraDiscoveryWorker emitting cameras: {cameras}")
         self.cameras_discovered.emit(cameras)
 
 
@@ -88,8 +104,10 @@ class CameraCaptureThread(QThread):
         self._last_detected_time = 0.0
         self._resume_cooldown_time = 0.0
         self._flush_frames_count = 0
+        logger.debug(f"CameraCaptureThread created for camera index {camera_index}.")
 
     def set_camera_index(self, index: int):
+        logger.info(f"Switching CameraCaptureThread index from {self.camera_index} to {index}.")
         self._mutex.lock()
         self.camera_index = index
         self._mutex.unlock()
@@ -99,12 +117,14 @@ class CameraCaptureThread(QThread):
 
     def retry_camera(self):
         """Restart camera capture loop to re-acquire hardware."""
+        logger.info(f"Retrying camera acquisition for camera index {self.camera_index}...")
         if self.isRunning():
             self.stop()
         self.start()
 
     def pause_detection(self):
         """Pause scanning/capturing when QR code is found or user requested."""
+        logger.debug("Pausing camera QR detection.")
         self._mutex.lock()
         self.detection_paused = True
         self._mutex.unlock()
@@ -114,6 +134,7 @@ class CameraCaptureThread(QThread):
 
     def resume_detection(self):
         """Resume active QR scanning with hardware buffer flush and debounce cooldown."""
+        logger.debug("Resuming camera QR detection (flushing stale frames).")
         self._mutex.lock()
         self.detection_paused = False
         self._last_detected_text = ""
@@ -125,6 +146,7 @@ class CameraCaptureThread(QThread):
             self._latest_detection = None
 
     def stop(self):
+        logger.info(f"Stopping CameraCaptureThread for camera index {self.camera_index}...")
         self._mutex.lock()
         self.running = False
         self._mutex.unlock()
@@ -202,17 +224,21 @@ class CameraCaptureThread(QThread):
 
     def run(self):
         self.running = True
+        logger.info(f"CameraCaptureThread executing run() for camera index {self.camera_index}.")
         self.cap = self._open_camera_with_fallback()
 
         if self.cap is None:
-            self.error_occurred.emit("Camera is in use by another application or unavailable.")
+            err = f"Camera {self.camera_index} is in use by another application or unavailable."
+            logger.error(err)
+            self.error_occurred.emit(err)
             self.running = False
             return
 
+        logger.info(f"Camera {self.camera_index} capture started successfully. Launching async detection worker.")
         self.camera_started.emit()
 
         # Start asynchronous deep-learning detection worker
-        self._worker_thread = threading.Thread(target=self._async_detection_worker, daemon=True)
+        self._worker_thread = threading.Thread(target=self._async_detection_worker, daemon=True, name="AsyncQRWorker")
         self._worker_thread.start()
 
         frame_interval = 1.0 / CAMERA_FPS
@@ -231,8 +257,12 @@ class CameraCaptureThread(QThread):
             ret, frame = self.cap.read()
             if not ret or frame is None:
                 consecutive_read_failures += 1
+                if consecutive_read_failures == 1:
+                    logger.debug(f"Frame read failure on camera {self.camera_index}.")
                 if consecutive_read_failures > 30:  # ~1 second of continuous failures
-                    self.error_occurred.emit("Camera connection lost or taken by another application.")
+                    err = "Camera connection lost or taken by another application."
+                    logger.error(f"{err} (consecutive failures: {consecutive_read_failures})")
+                    self.error_occurred.emit(err)
                     break
                 self.msleep(10)
                 continue

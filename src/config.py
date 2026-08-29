@@ -13,6 +13,16 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
     USER_DATA_DIR = BASE_DIR
 
+LOGS_DIR = USER_DATA_DIR / "logs"
+try:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    import tempfile
+    LOGS_DIR = Path(tempfile.gettempdir()) / "WinQRReader" / "logs"
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+LOG_FILE_PATH = LOGS_DIR / "winqrreader.log"
+
 ASSETS_DIR = BASE_DIR / "assets"
 LOGO_PATH = ASSETS_DIR / "logo.png"
 

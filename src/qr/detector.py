@@ -41,6 +41,10 @@ class SuperReliableQRDetector:
     def __init__(self):
         self.opencv_detector = cv2.QRCodeDetector()
         self.clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        logger.info(
+            f"SuperReliableQRDetector initialized. zxingcpp_available={HAS_ZXING}, "
+            f"opencv_version={cv2.__version__}"
+        )
 
     def detect_and_decode(self, frame: np.ndarray) -> DetectionResult:
         """Execute the multi-tier QR detection pipeline on an incoming video frame or photo."""

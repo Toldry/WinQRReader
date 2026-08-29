@@ -40,7 +40,9 @@ class WindowsWiFiManager:
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
                 timeout=5,
             )
-            return res.returncode == 0
+            success = (res.returncode == 0)
+            logger.info(f"WLAN AutoConfig service status check: {'OK' if success else 'Unavailable (code ' + str(res.returncode) + ')'}")
+            return success
         except Exception as e:
             logger.warning(f"Failed to check WLAN interfaces: {e}")
             return False
@@ -70,7 +72,9 @@ class WindowsWiFiManager:
                     current_ssid = line.split(":", 1)[1].strip()
 
             if is_connected and current_ssid:
+                logger.debug(f"Current WiFi status: Connected to '{current_ssid}'")
                 return True, current_ssid
+            logger.debug("Current WiFi status: Not connected")
             return False, ""
         except Exception as e:
             logger.error(f"Error checking connection status: {e}")
@@ -90,7 +94,13 @@ class WindowsWiFiManager:
         """
         clean_ssid = ssid.strip()
         if not clean_ssid:
+            logger.error("connect_network called with empty SSID.")
             return ConnectionResult(success=False, message="SSID cannot be empty.", ssid=ssid)
+
+        logger.info(
+            f"Initiating WiFi connection: SSID='{clean_ssid}', Auth='{auth_type}', "
+            f"Hidden={is_hidden}, HasPassword={bool(password)}"
+        )
 
         if status_callback:
             status_callback("Generating Windows WLAN Profile...")
@@ -103,11 +113,13 @@ class WindowsWiFiManager:
             with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as f:
                 f.write(xml_content)
                 temp_xml_path = f.name
+            logger.debug(f"WLAN profile XML written to temporary file: {temp_xml_path}")
 
             if status_callback:
                 status_callback(f"Adding network profile '{clean_ssid}'...")
 
             # Add profile using netsh
+            logger.info(f"Adding WLAN profile '{clean_ssid}' via netsh...")
             add_res = subprocess.run(
                 ["netsh", "wlan", "add", "profile", f"filename={temp_xml_path}", "user=all"],
                 capture_output=True,
@@ -127,10 +139,13 @@ class WindowsWiFiManager:
                     auth_type=auth_type,
                 )
 
+            logger.info(f"WLAN profile '{clean_ssid}' added successfully.")
+
             if status_callback:
                 status_callback(f"Connecting to '{clean_ssid}'...")
 
             # Initiate connection using Profile name
+            logger.info(f"Connecting to '{clean_ssid}' via netsh wlan connect...")
             conn_res = subprocess.run(
                 ["netsh", "wlan", "connect", f"name={clean_ssid}"],
                 capture_output=True,
