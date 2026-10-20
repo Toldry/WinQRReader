@@ -46,6 +46,18 @@ uv run --no-dev main.py
 
 ### Ubuntu
 
+Clone the repository into `~/.local/share/winqrreader`:
+```bash
+git clone https://github.com/Toldry/WinQRReader.git ~/.local/share/winqrreader
+cd ~/.local/share/winqrreader
+```
+
+`~/.local/share` is the per-user application data directory defined by the
+[XDG Base Directory spec](https://specifications.freedesktop.org/basedir-spec/latest/),
+and is where per-user tools such as pipx keep installed apps. It needs no `sudo`, and
+the app can write its `.venv` and `logs/` there. (`/opt` is the system-wide equivalent,
+but it is root-owned, so the app could not write to it without extra setup.)
+
 Install the system packages (Ubuntu Desktop already ships NetworkManager):
 ```bash
 sudo apt install libxcb-cursor0 network-manager
@@ -71,8 +83,9 @@ an Ubuntu Desktop session; over SSH or on minimal installs, add the user to the
 ### Add to the Ubuntu Dock
 
 Run `./run.py` once from a terminal first, so the initial dependency download has
-visible progress. Then, from the repository root, create a desktop entry:
+visible progress. Then create a desktop entry from the repository root:
 ```bash
+cd ~/.local/share/winqrreader
 mkdir -p ~/.local/share/applications
 cat > ~/.local/share/applications/winqrreader.desktop <<EOF
 [Desktop Entry]
