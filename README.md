@@ -17,7 +17,7 @@ Desktop application for QR code scanning and automatic WiFi profile provisioning
 | :--- | :--- | :--- |
 | WiFi backend | `netsh wlan` + WLANProfile XML | NetworkManager (`nmcli`) |
 | Camera backend | DirectShow → Media Foundation | V4L2 |
-| Launcher | `run.bat` | `run.sh` |
+| Launcher | `run.bat` | `run.py` |
 | Logs (standalone build) | `%LOCALAPPDATA%\WinQRReader\logs` | `~/.local/state/WinQRReader/logs` |
 
 Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`. Runtime
@@ -53,7 +53,7 @@ sudo apt install libxcb-cursor0 network-manager
 
 Then launch with the helper script, which also checks for those packages:
 ```bash
-./run.sh
+./run.py
 ```
 
 Or directly:
@@ -80,6 +80,11 @@ uv lock --upgrade          # refresh all pins in uv.lock
 uv run python build_exe.py
 ```
 Output artifact: `dist/WinQRReader/WinQRReader.exe` (Windows) or `dist/WinQRReader/WinQRReader` (Linux).
+
+To pack it into a release archive (`.zip` on Windows, `.tar.gz` on Linux), as CI does:
+```bash
+uv run python package_release.py --tag v1.0.0 --platform linux-x64
+```
 
 ## Architecture
 

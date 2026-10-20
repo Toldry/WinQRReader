@@ -72,10 +72,11 @@ WinQRReader/
 │   ├── test_real_images.py   # Real-world webcam photo test suite
 │   └── test_wifi_profile.py  # WLAN XML validity & encryption schema tests
 ├── build_exe.py              # PyInstaller bundle script with bytecode optimization (-O2)
+├── package_release.py        # Packs dist/WinQRReader into the release .zip (Windows) / .tar.gz (Linux)
 ├── pyproject.toml            # uv project: runtime deps + `dev` group (pytest, qrcode, pyinstaller)
 ├── uv.lock                   # Locked, cross-platform dependency pins (commit after `uv lock`)
 ├── run.bat                   # Zero-config Windows launcher (`uv run --no-dev main.py`)
-├── run.sh                    # Zero-config Linux launcher (`uv run --no-dev main.py` + system checks)
+├── run.py                    # Zero-config Linux launcher, stdlib only (`uv run --no-dev main.py` + system checks)
 └── main.py                   # App bootstrap, single-instance IPC, DPI setup
 ```
 
@@ -154,6 +155,7 @@ Generates Microsoft WLANProfile Schema `v1` XML:
 ## 7. CI/CD & Automated GitHub Releases
 
 Automated build and release pipeline configured in `.github/workflows/release.yml`:
+- **Scripting**: write helper and CI scripts in Python (stdlib only where they must run before uv), not shell.
 - **Dependency management**: uv only. Never add a `requirements.txt`; use `uv add` / `uv add --dev` and commit `uv.lock`.
 - **Trigger**: Pushing a version tag matching `v*` (e.g., `git tag v1.0.0` and `git push origin v1.0.0`).
 - **Runners**: `windows-latest` and `ubuntu-22.04` (oldest supported glibc, so Linux binaries also run on newer Ubuntu releases).
@@ -161,5 +163,5 @@ Automated build and release pipeline configured in `.github/workflows/release.ym
   1. Installs uv (`astral-sh/setup-uv`) and the locked dependencies with `uv sync --locked`.
   2. Runs the pytest suite (parser, detector, camera activation, WLAN profile, nmcli backend) with `QT_QPA_PLATFORM=offscreen`.
   3. Executes `python build_exe.py` with bytecode optimization (`--optimize=2`).
-  4. Packages the compiled distribution into `WinQRReader-<tag>-windows-x64.zip` and `WinQRReader-<tag>-linux-x64.tar.gz`.
+  4. `package_release.py` packages the compiled distribution into `WinQRReader-<tag>-windows-x64.zip` and `WinQRReader-<tag>-linux-x64.tar.gz`.
   5. On tag pushes only, a final job publishes a GitHub Release with auto-generated changelog and both archives attached.

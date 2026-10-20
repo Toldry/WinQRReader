@@ -52,27 +52,9 @@ jobs:
         run: |
           uv run --locked python build_exe.py
 
-      - name: Package Release Archive (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
+      - name: Package Release Archive
         run: |
-          $tag = "${{ github.ref_name }}"
-          if (-not $tag -or $tag -eq "") { $tag = "latest" }
-          $archiveName = "WinQRReader-$tag-${{ matrix.platform }}.zip"
-          Compress-Archive -Path dist/WinQRReader/* -DestinationPath $archiveName -Force
-          Write-Host "Created release asset: $archiveName"
-          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
-
-      - name: Package Release Archive (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          tag="${{ github.ref_name }}"
-          archive_name="WinQRReader-${tag:-latest}-${{ matrix.platform }}.tar.gz"
-          # tar preserves the executable bit, which zip archives would lose
-          tar -czf "$archive_name" -C dist WinQRReader
-          echo "Created release asset: $archive_name"
-          echo "ARCHIVE_NAME=$archive_name" >> "$GITHUB_ENV"
+          uv run --locked python package_release.py --tag "${{ github.ref_name }}" --platform ${{ matrix.platform }}
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
