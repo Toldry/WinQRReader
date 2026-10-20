@@ -8,7 +8,12 @@ from pathlib import Path
 # Base Paths (Handling both dev mode and PyInstaller bundle mode)
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys._MEIPASS)
-    USER_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WinQRReader"
+    if os.name == "nt":
+        USER_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WinQRReader"
+    else:
+        # XDG Base Directory spec: logs are state data
+        xdg_state_home = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
+        USER_DATA_DIR = Path(xdg_state_home) / "WinQRReader"
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
     USER_DATA_DIR = BASE_DIR
@@ -52,5 +57,5 @@ THEME = {
     "text_primary": "#f4f4f5",      # Zinc 100
     "text_secondary": "#a1a1aa",    # Zinc 400
     "text_muted": "#71717a",        # Zinc 500
-    "font_family": "'Segoe UI Variable Display', 'Segoe UI', -apple-system, sans-serif",
+    "font_family": "'Segoe UI Variable Display', 'Segoe UI', 'Ubuntu', 'Noto Sans', -apple-system, sans-serif",
 }

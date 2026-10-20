@@ -4,9 +4,10 @@ Delivers silky-smooth 30+ FPS camera streaming while running asynchronous zxing-
 Includes multi-backend fallback and camera contention recovery.
 """
 import logging
+import sys
 import threading
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -24,15 +25,29 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def camera_backends() -> List[Tuple[str, int]]:
+    """Return the OpenCV capture backends to try, in order of preference, for this OS."""
+    if sys.platform.startswith("linux"):
+        return [
+            ("V4L2", cv2.CAP_V4L2),
+            ("Default", cv2.CAP_ANY),
+        ]
+    return [
+        ("DirectShow", cv2.CAP_DSHOW),
+        ("MediaFoundation", cv2.CAP_MSMF),
+        ("Default", cv2.CAP_ANY),
+    ]
+
+
 def list_available_cameras(max_tested: int = 4) -> List[int]:
     """Discover available camera indices on the system."""
     available = []
     logger.info(f"Scanning for available camera hardware (testing indices 0 to {max_tested - 1})...")
     for i in range(max_tested):
         try:
-            # Quick non-blocking test with DSHOW, then default
-            cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-            backend_used = "DSHOW"
+            # Quick non-blocking test with the preferred native backend, then default
+            backend_used, backend = camera_backends()[0]
+            cap = cv2.VideoCapture(i, backend)
             if not cap.isOpened():
                 cap = cv2.VideoCapture(i)
                 backend_used = "Default"
@@ -198,20 +213,17 @@ class CameraCaptureThread(QThread):
             self.qr_detected.emit(detection)
 
     def _open_camera_with_fallback(self) -> Optional[cv2.VideoCapture]:
-        """Attempt to open camera with DirectShow, MSMF, or default backend."""
-        backends = [
-            ("DirectShow", cv2.CAP_DSHOW),
-            ("MediaFoundation", cv2.CAP_MSMF),
-            ("Default", cv2.CAP_ANY),
-        ]
-
-        for name, backend in backends:
+        """Attempt to open camera with the OS-native backends (DirectShow/MSMF or V4L2), then default."""
+        for name, backend in camera_backends():
             logger.info(f"Attempting to open camera {self.camera_index} with backend {name}...")
             cap = cv2.VideoCapture(self.camera_index, backend)
             if cap.isOpened():
                 # Test read a frame to confirm camera is not locked by another process
                 ret, frame = cap.read()
                 if ret and frame is not None:
+                    if backend == cv2.CAP_V4L2:
+                        # Uncompressed YUYV caps most USB webcams well below 30 FPS at 720p
+                        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_FRAME_WIDTH)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_FRAME_HEIGHT)
                     cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)

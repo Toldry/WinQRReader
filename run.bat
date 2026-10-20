@@ -5,23 +5,21 @@ echo          WinQRReader - Windows 11 WiFi QR Scanner
 echo =======================================================
 echo.
 
-:: Check Python installation
-python --version >nul 2>&1
+:: Check uv installation
+uv --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Python is not found in PATH. Please install Python 3.10+ from python.org.
+    echo [ERROR] uv is not found in PATH. Install it with:
+    echo         powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
     pause
     exit /b 1
 )
 
-:: Install / verify dependencies
-echo Checking dependencies...
-python -m pip install -r requirements.txt --quiet
-if %ERRORLEVEL% NEQ 0 (
-    echo [WARNING] Dependency check encountered an issue. Attempting to start app anyway...
-)
-
-:: Run Application
+:: Run Application (uv creates .venv and installs locked dependencies on first run)
 echo Starting WinQRReader...
-python main.py
+uv run --locked --no-dev main.py
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] WinQRReader exited with an error. See the console output above.
+    pause
+)
 
 endlocal

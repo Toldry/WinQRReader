@@ -6,7 +6,7 @@ This document details the internal architecture, design decisions, threading mod
 
 ## 1. System Architecture
 
-WinQRReader is architected as an asynchronous, event-driven desktop application combining high-performance optical computer vision with Windows 11 Native WLAN subsystem controls.
+WinQRReader is architected as an asynchronous, event-driven desktop application combining high-performance optical computer vision with native WiFi subsystem controls on Windows 11 (`netsh wlan`) and Ubuntu / Linux (NetworkManager `nmcli`). Platform-specific code is confined to `src/wifi/` (backend chosen by `create_wifi_manager()`) and `camera_backends()` in `src/camera/capture_thread.py`.
 
 ```
 +-------------------------------------------------------------------------------+
@@ -22,9 +22,9 @@ WinQRReader is architected as an asynchronous, event-driven desktop application 
            | pyqtSignal(frame, detection)     | pyqtSignal(creds)     | pyqtSignal(msg)
            |                                  |                       |
 +-------------------------+      +-------------------------+  +-----------------+
-|   CameraCaptureThread   |      |   WiFiConnectWorker     |  | WindowsWiFiMgr  |
-| - OpenCV DirectShow/MSMF|      | - Background QThread    |  | - XML Generator |
-| - SuperReliableDetector |      | - Non-blocking netsh    |  | - netsh wlan    |
+|   CameraCaptureThread   |      |   WiFiConnectWorker     |  | Windows/LinuxMgr|
+| - DSHOW/MSMF or V4L2    |      | - Background QThread    |  | - netsh + XML   |
+| - SuperReliableDetector |      | - Non-blocking netsh/nm |  | - or nmcli      |
 |   * zxing-cpp           |      | - Status Poller         |  | - Interface Chk |
 |   * CLAHE / Zoom 2x     |      +-------------------------+  +-----------------+
 |   * OpenCV Fallback     |
@@ -51,9 +51,10 @@ WinQRReader/
 │   │   ├── detector.py       # SuperReliableQRDetector (zxing-cpp + multi-stage optical enhancement)
 │   │   └── parser.py         # WiFi MeCard format parser & unescaper
 │   ├── camera/
-│   │   └── capture_thread.py # DirectShow / MSMF QThread camera pipeline & discovery worker
+│   │   └── capture_thread.py # DirectShow / MSMF / V4L2 QThread camera pipeline & discovery worker
 │   ├── wifi/
-│   │   ├── manager.py        # Windows WiFi connection runner & interface monitor
+│   │   ├── manager.py        # Windows WiFi connection runner, ConnectionResult, create_wifi_manager()
+│   │   ├── linux_manager.py  # Linux NetworkManager (nmcli) connection runner & interface monitor
 │   │   └── profile_builder.py# Windows WLANProfile XML schema generator
 │   └── ui/
 │       ├── main_window.py    # Main window orchestrator & thread manager
@@ -65,12 +66,17 @@ WinQRReader/
 ├── tests/
 │   ├── test_camera_activation.py # Manual camera activation & session lifecycle tests
 │   ├── test_detector.py      # QR detection accuracy & synthetic noise tests
+│   ├── test_linux_wifi.py    # nmcli backend tests (mocked subprocess, runs on any OS)
 │   ├── test_logger.py        # Logging setup, file creation, & exception hook tests
 │   ├── test_parser.py        # WiFi schema & escape character parsing tests
 │   ├── test_real_images.py   # Real-world webcam photo test suite
 │   └── test_wifi_profile.py  # WLAN XML validity & encryption schema tests
 ├── build_exe.py              # PyInstaller bundle script with bytecode optimization (-O2)
-├── run.bat                   # Zero-config Windows execution launcher
+├── package_release.py        # Packs dist/WinQRReader into the release .zip (Windows) / .tar.gz (Linux)
+├── pyproject.toml            # uv project: runtime deps + `dev` group (pytest, qrcode, pyinstaller)
+├── uv.lock                   # Locked, cross-platform dependency pins (commit after `uv lock`)
+├── run.bat                   # Zero-config Windows launcher (`uv run --no-dev main.py`)
+├── run.py                    # Zero-config Linux launcher, stdlib only (`uv run --no-dev main.py` + system checks)
 └── main.py                   # App bootstrap, single-instance IPC, DPI setup
 ```
 
@@ -111,6 +117,14 @@ Generates Microsoft WLANProfile Schema `v1` XML:
 - Configures `<authEncryption>` and `<sharedKey>` according to the security type (`WPA2PSK`/`AES`, `WPA3SAE`/`AES`, `open`/`none`, `open`/`WEP`).
 - Flags `<nonBroadcast>` when `is_hidden` is true.
 
+### Linux NetworkManager Backend (`src/wifi/linux_manager.py`)
+`LinuxWiFiManager` exposes the same interface as `WindowsWiFiManager` (`get_current_connection`, `connect_network`, `delete_profile`):
+- Picks the first managed `wifi` device from `nmcli -t -f DEVICE,TYPE,STATE device`.
+- Replaces any existing connection with the same name, then runs `nmcli connection add type wifi ...` with `wifi-sec.key-mgmt` `wpa-psk` (WPA/WPA2), `sae` (WPA3), `none` + `wep-key0` (WEP), or no security block (open); sets `wifi.hidden` for hidden networks.
+- Activates with `nmcli --wait <timeout> connection up id <ssid>`, which blocks until success or failure, and maps nmcli errors to friendly messages.
+- Runs nmcli with `LC_ALL=C` so error strings are matchable; parses terse (`-t`) output with `split_terse_fields`, which unescapes `\:` and `\\`.
+- Requires `opencv-python-headless` on Linux: the GUI `opencv-python` wheel bundles Qt plugins that clash with PyQt6.
+
 ---
 
 ## 5. Threading & Concurrency Model
@@ -119,13 +133,13 @@ Generates Microsoft WLANProfile Schema `v1` XML:
    - Manages UI events, animations (reticle sweeps), and rendering.
    - Never blocks on camera I/O or WiFi subprocess commands.
 2. **CameraCaptureThread & CameraDiscoveryWorker (`QThread`)**:
-   - Captures frames from webcam using DirectShow / MSMF with multi-backend fallback.
+   - Captures frames from webcam using DirectShow / MSMF (Windows) or V4L2 with MJPG (Linux), with multi-backend fallback.
    - Discovers available webcam hardware asynchronously without delaying initial window display.
    - Streams live feed at 30 FPS. Emits `frame_ready(frame, detection)` and `qr_detected(detection)`.
    - Supports `pause_detection()` and `resume_detection()` with buffer flushing.
 3. **WiFiConnectWorker (`QThread`)**:
-   - Executes profile registration and `netsh wlan connect` asynchronously.
-   - Polls interface state every 1.0s up to a configurable timeout (default 15s).
+   - Executes profile registration and `netsh wlan connect` (Windows) or `nmcli connection up` (Linux) asynchronously.
+   - Windows polls interface state every 1.0s up to a configurable timeout (default 15s); nmcli waits up to the same timeout itself.
    - Emits `progress(str)` and `finished(ConnectionResult)`.
 
 ---
@@ -141,11 +155,13 @@ Generates Microsoft WLANProfile Schema `v1` XML:
 ## 7. CI/CD & Automated GitHub Releases
 
 Automated build and release pipeline configured in `.github/workflows/release.yml`:
+- **Scripting**: write helper and CI scripts in Python (stdlib only where they must run before uv), not shell.
+- **Dependency management**: uv only. Never add a `requirements.txt`; use `uv add` / `uv add --dev` and commit `uv.lock`.
 - **Trigger**: Pushing a version tag matching `v*` (e.g., `git tag v1.0.0` and `git push origin v1.0.0`).
-- **Runner**: `windows-latest`.
+- **Runners**: `windows-latest` and `ubuntu-22.04` (oldest supported glibc, so Linux binaries also run on newer Ubuntu releases).
 - **Pipeline Stages**:
-  1. Installs dependencies from `requirements.txt`.
-  2. Runs 26 unit tests across parser, detector, camera activation, and WLAN profile generation.
+  1. Installs uv (`astral-sh/setup-uv`) and the locked dependencies with `uv sync --locked`.
+  2. Runs the pytest suite (parser, detector, camera activation, WLAN profile, nmcli backend) with `QT_QPA_PLATFORM=offscreen`.
   3. Executes `python build_exe.py` with bytecode optimization (`--optimize=2`).
-  4. Packages the compiled distribution into `WinQRReader-<tag>-windows-x64.zip`.
-  5. Publishes a GitHub Release with auto-generated changelog and attached `.zip` asset.
+  4. `package_release.py` packages the compiled distribution into `WinQRReader-<tag>-windows-x64.zip` and `WinQRReader-<tag>-linux-x64.tar.gz`.
+  5. On tag pushes only, a final job publishes a GitHub Release with auto-generated changelog and both archives attached.

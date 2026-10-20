@@ -5,6 +5,7 @@ Handles native Windows WLANProfile registration, connection requests, interface 
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass
@@ -248,3 +249,14 @@ class WindowsWiFiManager:
         except Exception as e:
             logger.warning(f"Error deleting profile '{ssid}': {e}")
             return False
+
+
+def create_wifi_manager():
+    """Return the WiFi manager implementation for the current operating system."""
+    if sys.platform.startswith("linux"):
+        from .linux_manager import LinuxWiFiManager
+
+        logger.info("Using NetworkManager (nmcli) WiFi backend.")
+        return LinuxWiFiManager()
+    logger.info("Using Windows netsh WiFi backend.")
+    return WindowsWiFiManager()

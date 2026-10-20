@@ -1,6 +1,7 @@
 """
 PyInstaller Standalone Executable Builder for WinQRReader
-Packages Python code, PyQt6 runtime, and assets/logo.png into an optimized, fast-startup Windows executable.
+Packages Python code, PyQt6 runtime, and assets/logo.png into an optimized, fast-startup
+standalone application for Windows (WinQRReader.exe) or Linux (WinQRReader).
 """
 import os
 import shutil
@@ -32,7 +33,8 @@ def build():
     print("=== WinQRReader PyInstaller Standalone Builder ===")
 
     # Step 1: Ensure icon assets are present
-    ensure_ico()
+    if os.name == "nt":
+        ensure_ico()
 
     # Step 2: Build PyInstaller command arguments
     print("[1/2] Compiling standalone executable with PyInstaller (Fast-Startup Optimizations)...")
@@ -58,7 +60,8 @@ def build():
         "--clean",
         "--optimize=2",
         f"--add-data={data_arg}",
-        f"--icon={LOGO_ICO}" if LOGO_ICO.exists() else "",
+        # PyInstaller only embeds icons on Windows and macOS
+        f"--icon={LOGO_ICO}" if os.name == "nt" and LOGO_ICO.exists() else "",
         "--hidden-import=PyQt6",
         "--hidden-import=cv2",
         "--hidden-import=zxingcpp",
@@ -78,7 +81,8 @@ def build():
 
     if result.returncode == 0:
         print("\n[2/2] Build succeeded!")
-        exe_path = DIST_DIR / "WinQRReader" / "WinQRReader.exe"
+        exe_name = "WinQRReader.exe" if os.name == "nt" else "WinQRReader"
+        exe_path = DIST_DIR / "WinQRReader" / exe_name
         if exe_path.exists():
             print(f"Executable output: {exe_path}")
         else:
