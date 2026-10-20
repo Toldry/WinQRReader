@@ -1,5 +1,5 @@
 """
-WinQRReader - Windows 11 WiFi QR Code Scanner
+WinQRReader - WiFi QR Code Scanner for Windows 11 and Ubuntu
 Main Application Entry Point with Single-Instance Enforcement
 """
 import ctypes

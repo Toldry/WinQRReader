@@ -10,9 +10,17 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build Windows Standalone & Create Release
-    runs-on: windows-latest
+  build:
+    name: Build ${{ matrix.platform }} Standalone
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
 
     steps:
       - name: Checkout Repository
@@ -24,33 +32,72 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Install Qt System Libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 libxcb-cursor0
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run Test Suite
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
-          python -m unittest discover -s tests -v
+          python -m pytest tests -v
 
       - name: Build Standalone Executable
         run: |
           python build_exe.py
 
-      - name: Package Release Archive
+      - name: Package Release Archive (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
           if (-not $tag -or $tag -eq "") { $tag = "latest" }
-          $zipName = "WinQRReader-$tag-windows-x64.zip"
-          Compress-Archive -Path dist/WinQRReader/* -DestinationPath $zipName -Force
-          Write-Host "Created release asset: $zipName"
-          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+          $archiveName = "WinQRReader-$tag-${{ matrix.platform }}.zip"
+          Compress-Archive -Path dist/WinQRReader/* -DestinationPath $archiveName -Force
+          Write-Host "Created release asset: $archiveName"
+          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
+
+      - name: Package Release Archive (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          tag="${{ github.ref_name }}"
+          archive_name="WinQRReader-${tag:-latest}-${{ matrix.platform }}.tar.gz"
+          # tar preserves the executable bit, which zip archives would lose
+          tar -czf "$archive_name" -C dist WinQRReader
+          echo "Created release asset: $archive_name"
+          echo "ARCHIVE_NAME=$archive_name" >> "$GITHUB_ENV"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinQRReader-${{ matrix.platform }}
+          path: ${{ env.ARCHIVE_NAME }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.ZIP_NAME }}
+          files: release-assets/*
           generate_release_notes: true
           draft: false
           prerelease: false

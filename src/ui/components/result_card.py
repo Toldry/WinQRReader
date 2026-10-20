@@ -139,7 +139,9 @@ class ResultCardWidget(QFrame):
         self.txt_pass = QLineEdit(page)
         self.txt_pass.setReadOnly(True)
         self.txt_pass.setEchoMode(QLineEdit.EchoMode.Password)
-        self.txt_pass.setFont(QFont("Consolas", 12))
+        password_font = QFont("Consolas", 12)
+        password_font.setStyleHint(QFont.StyleHint.Monospace)  # e.g. Ubuntu Mono on Linux
+        self.txt_pass.setFont(password_font)
 
         self.btn_toggle_pass = QPushButton("👁️", page)
         self.btn_toggle_pass.setProperty("class", "iconBtn")

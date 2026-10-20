@@ -23,7 +23,7 @@ from ..camera.capture_thread import CameraCaptureThread, CameraDiscoveryWorker
 from ..config import DEFAULT_CAMERA_INDEX, LOGO_PATH, THEME
 from ..qr.detector import DetectionResult, SuperReliableQRDetector
 from ..qr.parser import WiFiCredentials, is_wifi_qr, parse_wifi_qr
-from ..wifi.manager import ConnectionResult, WindowsWiFiManager
+from ..wifi.manager import ConnectionResult, create_wifi_manager
 from .components.camera_view import CameraViewWidget
 from .components.result_card import ResultCardWidget
 from .components.status_banner import StatusBannerWidget
@@ -33,12 +33,12 @@ logger = logging.getLogger(__name__)
 
 
 class WiFiConnectWorker(QThread):
-    """Background worker for non-blocking WiFi connection on Windows."""
+    """Background worker for non-blocking WiFi connection."""
 
     progress = pyqtSignal(str)
     finished = pyqtSignal(object)  # ConnectionResult
 
-    def __init__(self, wifi_manager: WindowsWiFiManager, creds: WiFiCredentials):
+    def __init__(self, wifi_manager, creds: WiFiCredentials):
         super().__init__()
         self.wifi_manager = wifi_manager
         self.creds = creds
@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
 
         # Core Engines
         self.detector = SuperReliableQRDetector()
-        self.wifi_manager = WindowsWiFiManager()
+        self.wifi_manager = create_wifi_manager()
         self.camera_thread: Optional[CameraCaptureThread] = None
         self.discovery_worker: Optional[CameraDiscoveryWorker] = None
         self.connect_worker: Optional[WiFiConnectWorker] = None
@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
         self.status_banner.hide_banner()
 
     def _on_connect_wifi_requested(self, creds: WiFiCredentials):
-        """Connect to WiFi using Windows Native WLAN in background worker."""
+        """Connect to WiFi using the native OS backend in a background worker."""
         logger.info(f"User initiated WiFi connection for SSID='{creds.ssid}'.")
         self.result_card.set_connecting_state(True, "Connecting...")
         self.status_banner.show_info(f"Connecting to '{creds.ssid}'...")
