@@ -12,13 +12,21 @@ FLUENT_DARK_STYLESHEET = f"""
     outline: none;
 }}
 
-/* Main Window */
+QWidget {{
+    background-color: transparent;
+}}
+
+/* Top-level windows must stay opaque. QSS type selectors share one specificity, so these
+   rules must come after the QWidget rule above, which would otherwise leave the window
+   see-through and smeared on compositors with alpha surfaces (e.g. Wayland on Ubuntu) */
 QMainWindow {{
     background-color: {THEME['bg_dark']};
 }}
 
-QWidget {{
-    background-color: transparent;
+QToolTip {{
+    background-color: {THEME['bg_card']};
+    border: 1px solid {THEME['border_subtle']};
+    padding: 4px 6px;
 }}
 
 /* Header and Navigation */

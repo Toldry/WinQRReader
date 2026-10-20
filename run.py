@@ -17,6 +17,19 @@ UV_INSTALL_HINTS = {
 }
 
 
+def find_uv():
+    """Locate uv on PATH, or where its installer puts it (dock launchers may lack ~/.local/bin on PATH)."""
+    uv_path = shutil.which("uv")
+    if uv_path is not None:
+        return uv_path
+    executable_name = "uv.exe" if os.name == "nt" else "uv"
+    for install_dir in ("~/.local/bin", "~/.cargo/bin"):
+        candidate = os.path.join(os.path.expanduser(install_dir), executable_name)
+        if os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
 def print_banner():
     print("=======================================================")
     print("          WinQRReader - WiFi QR Scanner")
@@ -38,7 +51,7 @@ def warn_about_missing_linux_packages():
 def main() -> int:
     print_banner()
 
-    uv_path = shutil.which("uv")
+    uv_path = find_uv()
     if uv_path is None:
         install_hint = UV_INSTALL_HINTS.get(sys.platform, UV_INSTALL_HINTS["default"])
         print("[ERROR] uv not found. Install it with:")

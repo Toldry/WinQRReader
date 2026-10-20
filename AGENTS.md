@@ -70,7 +70,8 @@ WinQRReader/
 │   ├── test_logger.py        # Logging setup, file creation, & exception hook tests
 │   ├── test_parser.py        # WiFi schema & escape character parsing tests
 │   ├── test_real_images.py   # Real-world webcam photo test suite
-│   └── test_wifi_profile.py  # WLAN XML validity & encryption schema tests
+│   ├── test_wifi_profile.py  # WLAN XML validity & encryption schema tests
+│   └── test_window_opacity.py # Main window renders fully opaque (Wayland smearing regression)
 ├── build_exe.py              # PyInstaller bundle script with bytecode optimization (-O2)
 ├── package_release.py        # Packs dist/WinQRReader into the release .zip (Windows) / .tar.gz (Linux)
 ├── pyproject.toml            # uv project: runtime deps + `dev` group (pytest, qrcode, pyinstaller)
@@ -124,6 +125,8 @@ Generates Microsoft WLANProfile Schema `v1` XML:
 - Activates with `nmcli --wait <timeout> connection up id <ssid>`, which blocks until success or failure, and maps nmcli errors to friendly messages.
 - Runs nmcli with `LC_ALL=C` so error strings are matchable; parses terse (`-t`) output with `split_terse_fields`, which unescapes `\:` and `\\`.
 - Requires `opencv-python-headless` on Linux: the GUI `opencv-python` wheel bundles Qt plugins that clash with PyQt6.
+- `main.py` sets `desktopFileName("winqrreader")` (the Wayland app ID) so the dock matches the window to `winqrreader.desktop`; on X11 the window class is `WinQRReader`. The README documents the desktop entry.
+- Top-level windows must paint an opaque background: Wayland surfaces have an alpha channel, so a see-through window smears when dragged. In `styles.py`, keep the `QMainWindow` rule after the global `QWidget { background: transparent }` rule (equal QSS specificity, last wins); `tests/test_window_opacity.py` guards this.
 
 ---
 
