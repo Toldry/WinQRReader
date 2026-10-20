@@ -1,6 +1,6 @@
 [project]
 name = "winqrreader"
-version = "1.0.0"
+version = "1.1.0"
 description = "WiFi QR code scanner that connects to the scanned network, for Windows 11 and Ubuntu"
 readme = "README.md"
 requires-python = ">=3.10"
