@@ -1,0 +1,34 @@
+[project]
+name = "winqrreader"
+version = "1.0.0"
+description = "WiFi QR code scanner that connects to the scanned network, for Windows 11 and Ubuntu"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # Webcam capture (DirectShow/MSMF/V4L2), CLAHE contrast normalization, and image processing.
+    # Linux uses the headless build: the GUI build bundles its own Qt plugins, which clash with PyQt6
+    "opencv-python>=4.8.0; sys_platform == 'win32'",
+    "opencv-python-headless>=4.8.0; sys_platform != 'win32'",
+    # High-performance C++ port for real-time sub-millisecond barcode & QR code decoding
+    "zxing-cpp>=2.2.0",
+    # Desktop GUI framework providing the Fluent dark-mode UI, QPainter HUD, and threading
+    "PyQt6>=6.6.0",
+    # Array manipulation for camera frame buffers, image transformations, and polygon bounding boxes
+    "numpy>=1.26.0",
+]
+
+[dependency-groups]
+dev = [
+    # Test runner (tests/test_logger.py is written in pytest style)
+    "pytest>=7.4.0",
+    # In-memory synthetic QR code generation for automated unit and integration testing
+    "qrcode[pil]>=7.4.2",
+    # Image processing backend used by qrcode and the .ico generation in build_exe.py
+    "pillow>=10.0.0",
+    # Bundles Python runtime, Qt libraries, and application assets into a portable standalone app
+    "pyinstaller>=6.4.0",
+]
+
+[tool.uv]
+# An application, not a library: install dependencies only, never build/install the project itself
+package = false

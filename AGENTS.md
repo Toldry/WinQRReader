@@ -72,8 +72,10 @@ WinQRReader/
 │   ├── test_real_images.py   # Real-world webcam photo test suite
 │   └── test_wifi_profile.py  # WLAN XML validity & encryption schema tests
 ├── build_exe.py              # PyInstaller bundle script with bytecode optimization (-O2)
-├── run.bat                   # Zero-config Windows execution launcher
-├── run.sh                    # Zero-config Linux launcher (creates .venv per PEP 668)
+├── pyproject.toml            # uv project: runtime deps + `dev` group (pytest, qrcode, pyinstaller)
+├── uv.lock                   # Locked, cross-platform dependency pins (commit after `uv lock`)
+├── run.bat                   # Zero-config Windows launcher (`uv run --no-dev main.py`)
+├── run.sh                    # Zero-config Linux launcher (`uv run --no-dev main.py` + system checks)
 └── main.py                   # App bootstrap, single-instance IPC, DPI setup
 ```
 
@@ -152,10 +154,11 @@ Generates Microsoft WLANProfile Schema `v1` XML:
 ## 7. CI/CD & Automated GitHub Releases
 
 Automated build and release pipeline configured in `.github/workflows/release.yml`:
+- **Dependency management**: uv only. Never add a `requirements.txt`; use `uv add` / `uv add --dev` and commit `uv.lock`.
 - **Trigger**: Pushing a version tag matching `v*` (e.g., `git tag v1.0.0` and `git push origin v1.0.0`).
 - **Runners**: `windows-latest` and `ubuntu-22.04` (oldest supported glibc, so Linux binaries also run on newer Ubuntu releases).
 - **Pipeline Stages**:
-  1. Installs dependencies from `requirements.txt`.
+  1. Installs uv (`astral-sh/setup-uv`) and the locked dependencies with `uv sync --locked`.
   2. Runs the pytest suite (parser, detector, camera activation, WLAN profile, nmcli backend) with `QT_QPA_PLATFORM=offscreen`.
   3. Executes `python build_exe.py` with bytecode optimization (`--optimize=2`).
   4. Packages the compiled distribution into `WinQRReader-<tag>-windows-x64.zip` and `WinQRReader-<tag>-linux-x64.tar.gz`.

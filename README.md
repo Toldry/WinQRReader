@@ -9,7 +9,8 @@ Desktop application for QR code scanning and automatic WiFi profile provisioning
 ## Requirements
 
 - **OS**: Windows 10 / 11 (x64), or Ubuntu 22.04+ (x64) with NetworkManager
-- **Python**: 3.10+
+- **Python**: 3.10+ (uv downloads one automatically if none is installed)
+- **Tooling**: [uv](https://docs.astral.sh/uv/) for Python, dependency, and virtual environment management
 - **Hardware**: Integrated or USB webcam, 802.11 WLAN adapter
 
 | | Windows | Ubuntu / Linux |
@@ -19,46 +20,64 @@ Desktop application for QR code scanning and automatic WiFi profile provisioning
 | Launcher | `run.bat` | `run.sh` |
 | Logs (standalone build) | `%LOCALAPPDATA%\WinQRReader\logs` | `~/.local/state/WinQRReader/logs` |
 
+Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`. Runtime
+dependencies are the default; test and build tools live in the `dev` dependency group.
+
 ## Installation & Execution
+
+### Install uv
+
+Ubuntu:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows (PowerShell):
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
 ### Windows
 
-Run from source:
+Double-click `run.bat`, or run from source:
 ```powershell
-pip install -r requirements.txt
-python main.py
+uv run --no-dev main.py
 ```
-
-Or double-click `run.bat`.
 
 ### Ubuntu
 
 Install the system packages (Ubuntu Desktop already ships NetworkManager):
 ```bash
-sudo apt install python3-venv libxcb-cursor0 network-manager
+sudo apt install libxcb-cursor0 network-manager
 ```
 
-Then launch with the helper script, which creates a `.venv` on first run
-(Ubuntu 23.04+ refuses system-wide `pip install`, see PEP 668):
+Then launch with the helper script, which also checks for those packages:
 ```bash
 ./run.sh
 ```
 
-Or manually:
+Or directly:
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python main.py
+uv run --no-dev main.py
 ```
+
+On first run, uv creates `.venv` and installs the locked dependencies into it.
 
 Your user needs access to the webcam (`/dev/video*`) and permission to manage
 NetworkManager connections. Both are granted by default to the logged-in user of
 an Ubuntu Desktop session; over SSH or on minimal installs, add the user to the
 `video` group and/or check the PolicyKit rules.
 
+### Managing Dependencies
+```bash
+uv add <package>           # runtime dependency
+uv add --dev <package>     # test / build tool
+uv lock --upgrade          # refresh all pins in uv.lock
+```
+
 ### Build Standalone Executable
 ```bash
-python build_exe.py
+uv run python build_exe.py
 ```
 Output artifact: `dist/WinQRReader/WinQRReader.exe` (Windows) or `dist/WinQRReader/WinQRReader` (Linux).
 
@@ -70,10 +89,10 @@ For architecture specifications, component breakdowns, and threading models, ref
 
 Run unit and integration test suite:
 ```bash
-python -m pytest tests -v
+uv run pytest tests -v
 ```
 
 On a headless Linux machine, set `QT_QPA_PLATFORM=offscreen` first:
 ```bash
-QT_QPA_PLATFORM=offscreen python -m pytest tests -v
+QT_QPA_PLATFORM=offscreen uv run pytest tests -v
 ```

@@ -26,11 +26,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
-          cache: 'pip'
+          enable-cache: true
 
       - name: Install Qt System Libraries (Linux)
         if: runner.os == 'Linux'
@@ -40,18 +40,17 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          uv sync --locked
 
       - name: Run Test Suite
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          python -m pytest tests -v
+          uv run --locked pytest tests -v
 
       - name: Build Standalone Executable
         run: |
-          python build_exe.py
+          uv run --locked python build_exe.py
 
       - name: Package Release Archive (Windows)
         if: runner.os == 'Windows'
