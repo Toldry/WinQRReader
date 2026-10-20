@@ -50,6 +50,8 @@ def main():
         app = QApplication(sys.argv)
         app.setApplicationName("WinQRReader")
         app.setOrganizationName("WinQRReader")
+        # Wayland app ID; lets the Linux dock match the window to winqrreader.desktop
+        app.setDesktopFileName("winqrreader")
 
         # Install Qt internal message handler
         install_qt_message_handler()

@@ -68,6 +68,43 @@ NetworkManager connections. Both are granted by default to the logged-in user of
 an Ubuntu Desktop session; over SSH or on minimal installs, add the user to the
 `video` group and/or check the PolicyKit rules.
 
+### Add to the Ubuntu Dock
+
+Run `./run.py` once from a terminal first, so the initial dependency download has
+visible progress. Then, from the repository root, create a desktop entry:
+```bash
+mkdir -p ~/.local/share/applications
+cat > ~/.local/share/applications/winqrreader.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=WinQRReader
+Comment=Scan a WiFi QR code and connect to the network
+Exec="$PWD/run.py"
+Path=$PWD
+Icon=$PWD/assets/logo.png
+Terminal=false
+Categories=Network;
+StartupWMClass=WinQRReader
+EOF
+```
+
+`$PWD` is expanded when you run the command, so the entry points at your clone; re-run
+it if you move the folder. To launch a standalone build instead, set `Exec=` to the
+full path of `dist/WinQRReader/WinQRReader`.
+
+Then press the Super key, type **WinQRReader**, right-click the result, and choose
+**Pin to Dash** (called **Add to Favorites** on older releases). While the app is
+running you can also right-click its dock icon and pick the same option.
+
+Keep the file name `winqrreader.desktop` and the `StartupWMClass` value as shown: they
+match the app ID the app reports (Wayland) and its window class (X11), which is how the
+dock groups the running window under the pinned icon.
+
+To remove it:
+```bash
+rm ~/.local/share/applications/winqrreader.desktop
+```
+
 ### Managing Dependencies
 ```bash
 uv add <package>           # runtime dependency
